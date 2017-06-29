@@ -53,7 +53,7 @@ class GitDependenciesRepository(GitRepository):
 	def removeDependency(self, path):
 		self.config.remove_section(path)
 
-	def updateDependencies(self, path = '*', recursive = False, osFilter = [], overrides = None):
+	def updateDependencies(self, path = '*', recursive = False, osFilter = [], overrides = None, override_all = False):
 		if (self.config == None):
 			return
 		cleanPath = self.__cleanPath(path)
@@ -68,8 +68,12 @@ class GitDependenciesRepository(GitRepository):
 				if (len(osFilter) > 0 and len(set(filteredOSTypes).intersection(osFilter)) == 0):
 					continue
 
-			if (overrides and not self.config[p]['url'] in overrides):
-				sys.exit('overrides incomplete, missing: {}'.format(self.config[p]['url']))
+			# If overrides are used, get the override. Fail for missing override if override_all is set.
+			overrideRef = None
+			if(overrides):
+				overrideRef = overrides.get(self.config[p]['url'])
+				if(override_all and not overrideRef):
+					sys.exit('overrides incomplete, missing: {}'.format(self.config[p]['url']))
 
 			dependencyPath = os.path.join(self.repositoryPath, p)
 
@@ -85,9 +89,9 @@ class GitDependenciesRepository(GitRepository):
 			d = GitDependenciesRepository(self.config[p]['url'], dependencyPath)
 			if (not os.path.exists(dependencyPath) or not d.isValidRepository()):
 				print(dependencyPath + ' was not found, cloning into dependency...')
-				if (overrides):
+				if (overrideRef):
 					d.clone(branch = None)
-					d.checkout(overrides[self.config[p]['url']])
+					d.checkout(overrideRef)
 				elif (self.config.has_option(p, 'freezed')):
 					d.clone(self.config[p]['freezed'])
 					d.checkout(self.config[p]['ref'])
@@ -102,9 +106,9 @@ class GitDependenciesRepository(GitRepository):
 						sys.exit(task.exitCode())
 
 				print('Updating ' + dependencyPath)
-				if (overrides):
-					d.fetch('origin', overrides[self.config[p]['url']])
-					d.checkout(overrides[self.config[p]['url']])
+				if (overrideRef):
+					d.fetch('origin', overrideRef)
+					d.checkout(overrideRef)
 				elif (self.config.has_option(p, 'freezed')):
 					d.fetch('origin', self.config[p]['freezed'])
 					d.checkout(self.config[p]['ref'])
@@ -125,7 +129,7 @@ class GitDependenciesRepository(GitRepository):
 			dependencyPath = os.path.join(self.repositoryPath, p)
 			if(recursive and not self.__isSymlink(dependencyPath)):
 				d = GitDependenciesRepository(self.config[p]['url'], dependencyPath)
-				d.updateDependencies('*', recursive, osFilter, overrides)
+				d.updateDependencies('*', recursive, osFilter, overrides, override_all)
 
 		for p in sections:
 			# Continue with the next section, OS is filtered
