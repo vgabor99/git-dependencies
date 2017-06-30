@@ -129,7 +129,7 @@ class GitDependenciesRepository(GitRepository):
 			dependencyPath = os.path.join(self.repositoryPath, p)
 			if(recursive and not self.__isSymlink(dependencyPath)):
 				d = GitDependenciesRepository(self.config[p]['url'], dependencyPath)
-				d.updateDependencies('*', recursive, osFilter, overrides, override_all)
+				d.updateDependencies('*', recursive, [], overrides, override_all)
 
 		for p in sections:
 			# Continue with the next section, OS is filtered
